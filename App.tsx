@@ -16,7 +16,8 @@ import {
   Zap, 
   Search,
   CheckCircle2,
-  Calendar
+  Calendar,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -28,6 +29,10 @@ const App = () => {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrTarget, setQrTarget] = useState({ url: '', alias: '' });
   
+  // Redirection State
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [redirectUrl, setRedirectUrl] = useState('');
+
   // Create Form State
   const [newUrl, setNewUrl] = useState('');
   const [newAlias, setNewAlias] = useState('');
@@ -39,7 +44,38 @@ const App = () => {
 
   useEffect(() => {
     refreshLinks();
+    checkRedirect();
   }, []);
+
+  const checkRedirect = () => {
+    // Check if the URL has a hash like #/my-alias or #my-alias
+    const hash = window.location.hash;
+    if (hash && hash.length > 1) {
+      // Remove '#' and leading '/' if present
+      const alias = hash.substring(1).replace(/^\//, '');
+      
+      if (alias) {
+        const link = LinkService.resolveAlias(alias);
+        if (link) {
+          setIsRedirecting(true);
+          setRedirectUrl(link.originalUrl);
+          
+          // Track the click
+          AnalyticsService.trackClick(alias);
+          
+          // Perform the redirect after a short delay for UX
+          setTimeout(() => {
+            window.location.replace(link.originalUrl);
+          }, 1500);
+        } else {
+           // Alias found in URL but not in DB (404)
+           showToast("Link not found or expired");
+           // Remove hash so user stays on dashboard
+           history.pushState("", document.title, window.location.pathname + window.location.search);
+        }
+      }
+    }
+  };
 
   const refreshLinks = () => {
     setLinks(LinkService.getAll());
@@ -118,6 +154,38 @@ const App = () => {
     showToast('Copied to clipboard!');
   };
 
+  // --- REDIRECT VIEW ---
+  if (isRedirecting) {
+    return (
+      <div className="flex flex-col h-screen w-full items-center justify-center bg-gray-50 text-center px-4">
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full"
+        >
+           <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
+             <Loader2 className="w-8 h-8 animate-spin" />
+           </div>
+           <h2 className="text-2xl font-bold text-gray-900 mb-2">Redirecting...</h2>
+           <p className="text-gray-500 mb-6">
+             You are being redirected to<br/>
+             <span className="font-mono text-indigo-600 break-all">{redirectUrl}</span>
+           </p>
+           <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+             <motion.div 
+                className="bg-indigo-600 h-full rounded-full"
+                initial={{ width: "0%" }}
+                animate={{ width: "100%" }}
+                transition={{ duration: 1.5, ease: "easeInOut" }}
+             />
+           </div>
+        </motion.div>
+        <p className="mt-8 text-sm text-gray-400">Powered by Linkly</p>
+      </div>
+    );
+  }
+
+  // --- DASHBOARD VIEW ---
   return (
     <div className="flex h-screen bg-gray-50 text-gray-900 font-sans overflow-hidden">
       
