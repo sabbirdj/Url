@@ -1,0 +1,5 @@
+{
+  "name": "Linkly - Advanced URL Shortener",
+  "description": "Enterprise-grade URL shortener with real-time analytics, QR code generation, and simulated high-performance caching.",
+  "requestFramePermissions": []
+}
